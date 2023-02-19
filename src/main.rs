@@ -1,11 +1,17 @@
 // hide console window on Windows in release
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+extern crate fs_extra;
 use chrono::Local;
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
+use fs_extra::{copy_items, dir};
 use log::error;
 
-use std::{env, fs, io, path::PathBuf, process};
+use std::{
+    env, fs, io,
+    path::{Path, PathBuf},
+    process,
+};
 
 fn main() {
     let config_dir = check_create_config_dir().unwrap_or_else(|err| {
@@ -32,7 +38,11 @@ fn main() {
     let cur_dir = env::current_dir().unwrap();
     test_dir.push(cur_dir);
     test_dir.push("testdir");
-    mk_bkp(test_dir, true, config_dir).unwrap();
+    // mk_bkp(test_dir, true, config_dir).unwrap();
+
+    let source_path = vec![test_dir];
+    let target_path = Path::new(&config_dir).to_path_buf();
+    mk_bkp(source_path, target_path).unwrap();
 }
 
 fn check_create_config_dir() -> io::Result<PathBuf> {
@@ -55,57 +65,49 @@ fn check_create_config_dir() -> io::Result<PathBuf> {
     Ok(bkp_dir)
 }
 
-// TODO needed?
-// fn show_log_file(config_dir: &str) -> io::Result<String> {
-//     let log_path = Path::new(&config_dir).join("bkp.log");
-//     match log_path.try_exists()? {
-//         true => {
-//             return Ok(format!(
-//                 "{} {}\n{}",
-//                 "Log location:".italic().dimmed(),
-//                 &log_path.display(),
-//                 fs::read_to_string(&log_path)?
-//             ));
-//         }
-//         false => {
-//             return Ok(format!(
-//                 "{} {}",
-//                 "No log file found:".red().bold().to_string(),
-//                 log_path.display()
-//             ))
+// fn mk_bkp(source_dir: PathBuf, original_source: bool, target_dir: PathBuf) -> io::Result<()> {
+//     if original_source {
+//         let mut bkp_dir = PathBuf::new();
+//         let datetime = Local::now().format("%d%m%Y_%H%M%S_%f").to_string();
+//         match source_dir.file_name() {
+//             Some(name) => {
+//                 let new_name = name.to_string_lossy() + "_" + datetime.as_str();
+//                 bkp_dir.push(target_dir);
+//                 bkp_dir.push(new_name.as_ref());
+//             }
+//             None => {
+//                 error!("Unable to extract filename")
+//             }
 //         }
 //     }
+
+//     for entry in fs::read_dir(source_dir)? {
+//         let entry = entry?;
+//         if entry.path().is_dir() {
+//             todo!()
+//             // TODO FIXME does this work?
+//             //    no, every new folder gets copied directly into "bkp"
+//             // mkbkp(entry.path(), false, new_target_dir);
+//         } else if entry.path().is_file() {
+//             println!("Copy file: {}", entry.path().display());
+//             // TODO check this
+//             // fs::copy(entry.path(), &bkp_dir)?;
+//         }
+//     }
+
+//     Ok(())
 // }
 
-fn mk_bkp(source_dir: PathBuf, original_source: bool, target_dir: PathBuf) -> io::Result<()> {
-    if original_source {
-        let mut bkp_dir = PathBuf::new();
-        let datetime = Local::now().format("%d%m%Y_%H%M%S_%f").to_string();
-        match source_dir.file_name() {
-            Some(name) => {
-                let new_name = name.to_string_lossy() + "_" + datetime.as_str();
-                bkp_dir.push(target_dir);
-                bkp_dir.push(new_name.as_ref());
-            }
-            None => {
-                error!("Unable to extract filename")
-            }
-        }
-    }
-
-    for entry in fs::read_dir(source_dir)? {
-        let entry = entry?;
-        if entry.path().is_dir() {
-            todo!()
-            // TODO FIXME does this work?
-            //    no, every new folder gets copied directly into "bkp"
-            // mkbkp(entry.path(), false, new_target_dir);
-        } else if entry.path().is_file() {
-            println!("Copy file: {}", entry.path().display());
-            // TODO check this
-            // fs::copy(entry.path(), &bkp_dir)?;
-        }
-    }
+fn mk_bkp(paths: Vec<PathBuf>, target_dir: PathBuf) -> Result<(), fs_extra::error::Error> {
+    // let options = dir::CopyOptions::new();
+    let options = dir::CopyOptions {
+        overwrite: false,
+        skip_exist: false,
+        copy_inside: false,
+        content_only: false,
+        ..Default::default()
+    };
+    copy_items(&paths, target_dir, &options)?;
 
     Ok(())
 }
