@@ -5,7 +5,7 @@ extern crate fs_extra;
 // use chrono::Local;
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use fs_extra::{copy_items, dir};
-use log::{error, warn};
+use log::{error, info, warn};
 
 use std::{
     collections::BTreeMap,
@@ -23,7 +23,7 @@ fn main() {
     });
 
     // initialize the logger
-    let _logger = Logger::try_with_str("warn") // log warn and error
+    let _logger = Logger::try_with_str("info") // log warn and error
         .unwrap()
         .format_for_files(detailed_format) // use timestamp for every log
         .log_to_file(
@@ -103,22 +103,29 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, P
         fs::write(&bkp_path, default_content)?;
     }
 
-    let file = File::open(bkp_path)?;
+    let file = File::open(&bkp_path)?;
     let reader = BufReader::new(file);
     let mut sources = BTreeMap::new();
 
+    let mut counter = 0;
     for line in reader.lines() {
         let line = line?;
-        if !line.contains("#") {
+        if line.as_str().starts_with("#") {
+            continue;
+        } else {
             if let Some((name, src)) = line.split_once("=") {
                 sources.insert(name.trim().to_string(), Path::new(src.trim()).to_path_buf());
-            } else {
-                // TODO
-                // create a helpful msg where to find the bkp.txt
-                // if no sources are in this file
-                warn!("No sources found");
+                counter += 1;
             }
         }
+    }
+
+    if counter == 0 {
+        warn!("No sources found. Nothing to back up");
+        info!(
+            "Place the files or folders to back up in {}",
+            &bkp_path.display()
+        );
     }
 
     Ok(sources)
