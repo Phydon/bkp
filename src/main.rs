@@ -36,7 +36,7 @@ fn main() {
         .start()
         .unwrap();
 
-    // // FIXME still testing
+    // // FOR TESTING
     // let mut test_dir = PathBuf::new();
     // let cur_dir = env::current_dir().unwrap();
     // test_dir.push(cur_dir);
@@ -53,7 +53,11 @@ fn main() {
     });
 
     for (name, src) in sources {
-        println!("{}: {}", name, src.display());
+        if let Err(err) = mk_bkp(src, &config_dir) {
+            error!("Error while trying to back up sources: {err}");
+            process::exit(1);
+        }
+        println!("{}: copied", name);
     }
 }
 
@@ -77,17 +81,19 @@ fn check_create_config_dir() -> io::Result<PathBuf> {
     Ok(bkp_dir)
 }
 
-// TODO make sure not to override already existing backup folders/files
-// -> use chrono for different folder/file names?
-fn mk_bkp(paths: Vec<PathBuf>, target_dir: PathBuf) -> Result<(), fs_extra::error::Error> {
-    // let options = dir::CopyOptions::new();
+fn mk_bkp(source: PathBuf, target_dir: &PathBuf) -> Result<(), fs_extra::error::Error> {
+    // TODO always skip existing files?
+    // -> maybe use chrono for different folder/file names instead?
     let options = dir::CopyOptions {
         overwrite: false,
-        skip_exist: false,
+        skip_exist: true,
         copy_inside: false,
         content_only: false,
         ..Default::default()
     };
+
+    let mut paths = Vec::new();
+    paths.push(source.as_path());
     copy_items(&paths, target_dir, &options)?;
 
     Ok(())
@@ -110,7 +116,7 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, P
     let mut counter = 0;
     for line in reader.lines() {
         let line = line?;
-        if line.as_str().starts_with("#") {
+        if line.as_str().starts_with("#") || line.as_str().starts_with("//") {
             continue;
         } else {
             if let Some((name, src)) = line.split_once("=") {
