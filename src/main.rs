@@ -10,7 +10,6 @@ use log::{error, info, warn};
 
 use std::{
     collections::BTreeMap,
-    // env,
     fs::{self, File},
     io::{self, BufRead, BufReader},
     path::{Path, PathBuf},
