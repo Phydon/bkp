@@ -22,6 +22,9 @@
 * every information, warnings or errors can be found in the *bkp.log* file in the *bkp folder*
 
 ### Keep in mind
+
 **always back up your files and folders before using this program**
+
 **always test if your backup has worked correctly**
+
 **always back up your files and folders**
