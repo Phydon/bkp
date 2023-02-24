@@ -162,7 +162,7 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (
             "Usage:",
             "<folder_name> = <path_to_source> & <overwrite>",
             "Example:",
-            "my_backup = C:\\Users\\Username\\Documents\\important_folder\\ & true"
+            "my_backup = C:\\\\Users\\\\Username\\\\Documents\\\\important_folder\\\\ & true"
         );
         fs::write(&bkp_path, default_content)?;
     }
@@ -174,12 +174,10 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (
     let mut counter = 0;
     for line in reader.lines() {
         let line = line?;
-        if line.as_str().starts_with("#") || line.as_str().starts_with("//") {
+        if line.as_str().starts_with("#") || line.as_str().starts_with("//") || line.is_empty() {
             continue;
         } else {
-            // TODO handle if "=" is missing or wrong
             if let Some((name, source_path)) = line.split_once("=") {
-                // TODO handle if "&" is missing or wrong
                 if let Some((src, overwrite)) = source_path.split_once("&") {
                     match overwrite.to_lowercase().trim() {
                         "true" => {
@@ -199,7 +197,11 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (
                         // TODO panics -> handle error differently?
                         _ => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
                     }
+                } else {
+                    return Err(io::Error::from(io::ErrorKind::InvalidData));
                 }
+            } else {
+                return Err(io::Error::from(io::ErrorKind::InvalidData));
             }
         }
     }
