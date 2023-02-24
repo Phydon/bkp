@@ -51,22 +51,30 @@ fn main() {
     // mk_bkp(source_path, target_path).unwrap();
 
     let sources = read_sources_from_file(&config_dir).unwrap_or_else(|err| {
-        warn!("Unable to find sources: {err}");
+        warn!("Unable to find or read sources: {err}");
         process::exit(1);
     });
 
-    for (name, src) in sources {
-        match mk_bkp(&src, &config_dir) {
+    for (name, (src, overwrite)) in sources {
+        match mk_bkp(&src, &config_dir, overwrite) {
             Ok(_) => {
-                info!("{}: successfully secured at {}", name, datetime);
+                info!("{}: successfully secured, {}", name, datetime);
             }
-            // TODO handle none existing source paths in bkp.txt
-            // if path doesn`t exist -> log warn and simply continue
-            // with the other sources
-            // TODO handle other errors as well
             Err(err) => match err.kind {
                 fs_extra::error::ErrorKind::NotFound => {
-                    warn!("Source not found: {err}");
+                    warn!("{name} not found: {err}");
+                    continue;
+                }
+                fs_extra::error::ErrorKind::PermissionDenied => {
+                    warn!("You don`t have access to the source {name}: {err}");
+                    continue;
+                }
+                fs_extra::error::ErrorKind::AlreadyExists => {
+                    warn!("{name} already exists: {err}\nRename the source to back up");
+                    continue;
+                }
+                fs_extra::error::ErrorKind::InvalidFileName => {
+                    warn!("{name} has an invalid name: {err}\nRename the source to back up");
                     continue;
                 }
                 _ => {
@@ -101,11 +109,15 @@ fn check_create_config_dir() -> io::Result<PathBuf> {
     Ok(bkp_dir)
 }
 
-fn mk_bkp(source: &PathBuf, target_dir: &PathBuf) -> Result<(), fs_extra::error::Error> {
+fn mk_bkp(
+    source: &PathBuf,
+    target_dir: &PathBuf,
+    overwrite: bool,
+) -> Result<(), fs_extra::error::Error> {
     // TODO always skip existing files?
     // -> maybe use chrono for different folder/file names instead?
     let options = dir::CopyOptions {
-        overwrite: false,
+        overwrite: overwrite,
         skip_exist: true,
         copy_inside: false,
         content_only: false,
@@ -119,19 +131,19 @@ fn mk_bkp(source: &PathBuf, target_dir: &PathBuf) -> Result<(), fs_extra::error:
     Ok(())
 }
 
-fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, PathBuf>> {
+fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (PathBuf, bool)>> {
     let mut bkp_path = PathBuf::new();
     bkp_path.push(&config_dir);
     bkp_path.push("bkp.txt");
 
     if !bkp_path.as_path().exists() {
-        let default_content = "# Usage:\n# <folder_name> = <path_to_source>\n# Example:\n# my_backup = ~/Documents/important_folder/";
+        let default_content = "# Usage:\n# <folder_name> = <path_to_source> & <overwrite>\n# Example:\n# my_backup = C:\\Users\\Username\\Documents\\important_folder\\ & true";
         fs::write(&bkp_path, default_content)?;
     }
 
     let file = File::open(&bkp_path)?;
     let reader = BufReader::new(file);
-    let mut sources = BTreeMap::new();
+    let mut sources: BTreeMap<String, (PathBuf, bool)> = BTreeMap::new();
 
     let mut counter = 0;
     for line in reader.lines() {
@@ -139,9 +151,29 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, P
         if line.as_str().starts_with("#") || line.as_str().starts_with("//") {
             continue;
         } else {
-            if let Some((name, src)) = line.split_once("=") {
-                sources.insert(name.trim().to_string(), Path::new(src.trim()).to_path_buf());
-                counter += 1;
+            // TODO handle if "=" is missing or wrong
+            if let Some((name, source_path)) = line.split_once("=") {
+                // TODO handle if "&" is missing or wrong
+                if let Some((src, overwrite)) = source_path.split_once("&") {
+                    match overwrite.to_lowercase().trim() {
+                        "true" => {
+                            sources.insert(
+                                name.trim().to_string(),
+                                (Path::new(src.trim()).to_path_buf(), true),
+                            );
+                            counter += 1;
+                        }
+                        "false" => {
+                            sources.insert(
+                                name.trim().to_string(),
+                                (Path::new(src.trim()).to_path_buf(), false),
+                            );
+                            counter += 1;
+                        }
+                        // TODO panics -> handle error different?
+                        _ => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
+                    }
+                }
             }
         }
     }
