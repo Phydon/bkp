@@ -18,4 +18,10 @@
     * if "=" is missing or "&" is missing:
         * returns an error
     * everything placed after "#" or "//" will be treated as a comment and will be ignored
-* every information, warning or errors can be found in the *bkp.log* file in the *bkp folder*
+    * every empty line will be ignored
+* every information, warnings or errors can be found in the *bkp.log* file in the *bkp folder*
+
+### Keep in mind
+**always back up your files and folders before using this program**
+**always test if your backup has worked correctly**
+**always back up your files and folders**
