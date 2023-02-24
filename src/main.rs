@@ -18,6 +18,7 @@ use std::{
 };
 
 fn main() {
+    // creates or gets the bkp folder in the config directory
     let config_dir = check_create_config_dir().unwrap_or_else(|err| {
         error!("Unable to find or create a config directory: {err}");
         process::exit(1);
@@ -39,24 +40,18 @@ fn main() {
 
     let datetime = Local::now().format("%a %e.%b.%Y, %T").to_string();
 
-    // // FOR TESTING
-    // let mut test_dir = PathBuf::new();
-    // let cur_dir = env::current_dir().unwrap();
-    // test_dir.push(cur_dir);
-    // test_dir.push("testdir");
-    // // mk_bkp(test_dir, true, config_dir).unwrap();
-
-    // let source_path = vec![test_dir];
-    // let target_path = Path::new(&config_dir).to_path_buf();
-    // mk_bkp(source_path, target_path).unwrap();
-
+    // read sources to back up from bkp.txt in bkp folder
+    // if no bkp.txt exists in bkp folder -> create a default one
     let sources = read_sources_from_file(&config_dir).unwrap_or_else(|err| {
         warn!("Unable to find or read sources: {err}");
         process::exit(1);
     });
 
+    // create backups for the sources from bkp.txt
+    // if overwrite is set to false
+    // a new folder gets created with the current datetime in the name
     for (name, (src, overwrite)) in sources {
-        match mk_bkp(&src, &config_dir, overwrite) {
+        match mk_bkp(&name, &src, &config_dir, overwrite) {
             Ok(_) => {
                 info!("{}: successfully secured, {}", name, datetime);
             }
@@ -89,6 +84,12 @@ fn main() {
             },
         }
     }
+
+    // clean up all empty directories in the bkp folder
+    if let Err(err) = clean_empty(&config_dir) {
+        error!("Error while cleaning up bkp folder: {err}");
+        process::exit(1);
+    }
 }
 
 fn check_create_config_dir() -> io::Result<PathBuf> {
@@ -110,12 +111,12 @@ fn check_create_config_dir() -> io::Result<PathBuf> {
 }
 
 fn mk_bkp(
+    source_name: &str,
     source: &PathBuf,
     target_dir: &PathBuf,
     overwrite: bool,
 ) -> Result<(), fs_extra::error::Error> {
     // TODO always skip existing files?
-    // -> maybe use chrono for different folder/file names instead?
     let options = dir::CopyOptions {
         overwrite: overwrite,
         skip_exist: true,
@@ -126,7 +127,26 @@ fn mk_bkp(
 
     let mut paths = Vec::new();
     paths.push(source.as_path());
-    copy_items(&paths, target_dir, &options)?;
+
+    if overwrite {
+        copy_items(&paths, target_dir, &options)?;
+    } else {
+        let datetime = Local::now().format("%e%b%Y_%H%M%S%f").to_string();
+        let new_name = source_name.to_owned() + "_" + &datetime;
+        let mut new_target_dir = PathBuf::new();
+        new_target_dir.push(target_dir);
+        new_target_dir.push(new_name);
+
+        // TODO always creates the new_tagret_dir
+        // -> if fs_extra::Error -> new created directory will be emtpy
+        // => clean up empty direcories in bkp folder after every program run
+        // is there a better way to handle that?
+        if !new_target_dir.as_path().exists() {
+            fs::create_dir(&new_target_dir)?;
+        }
+
+        copy_items(&paths, new_target_dir, &options)?;
+    }
 
     Ok(())
 }
@@ -137,7 +157,13 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (
     bkp_path.push("bkp.txt");
 
     if !bkp_path.as_path().exists() {
-        let default_content = "# Usage:\n# <folder_name> = <path_to_source> & <overwrite>\n# Example:\n# my_backup = C:\\Users\\Username\\Documents\\important_folder\\ & true";
+        let default_content = format!(
+            "# {}\n# {}\n# {}\n# {}",
+            "Usage:",
+            "<folder_name> = <path_to_source> & <overwrite>",
+            "Example:",
+            "my_backup = C:\\Users\\Username\\Documents\\important_folder\\ & true"
+        );
         fs::write(&bkp_path, default_content)?;
     }
 
@@ -170,7 +196,7 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (
                             );
                             counter += 1;
                         }
-                        // TODO panics -> handle error different?
+                        // TODO panics -> handle error differently?
                         _ => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
                     }
                 }
@@ -187,4 +213,20 @@ fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (
     }
 
     Ok(sources)
+}
+
+fn clean_empty(bkp_path: &PathBuf) -> io::Result<()> {
+    for entry in fs::read_dir(bkp_path)? {
+        let entry = entry?;
+        if let Ok(filetype) = entry.file_type() {
+            if filetype.is_dir() {
+                if fs::read_dir(entry.path())?.count() == 0 {
+                    fs::remove_dir(entry.path())?; // only removes empty directories
+                    info!("Removed: {}", entry.path().display());
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
