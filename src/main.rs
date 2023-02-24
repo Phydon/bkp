@@ -1,8 +1,9 @@
 // hide console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// TODO use different filetype instead of bkp.txt?
 extern crate fs_extra;
-// use chrono::Local;
+use chrono::Local;
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use fs_extra::{copy_items, dir};
 use log::{error, info, warn};
@@ -36,6 +37,8 @@ fn main() {
         .start()
         .unwrap();
 
+    let datetime = Local::now().format("%a %e.%b.%Y, %T").to_string();
+
     // // FOR TESTING
     // let mut test_dir = PathBuf::new();
     // let cur_dir = env::current_dir().unwrap();
@@ -53,11 +56,30 @@ fn main() {
     });
 
     for (name, src) in sources {
-        if let Err(err) = mk_bkp(src, &config_dir) {
-            error!("Error while trying to back up sources: {err}");
-            process::exit(1);
+        match mk_bkp(&src, &config_dir) {
+            Ok(_) => {
+                info!("{}: successfully secured at {}", name, datetime);
+            }
+            // TODO handle none existing source paths in bkp.txt
+            // if path doesn`t exist -> log warn and simply continue
+            // with the other sources
+            // TODO handle other errors as well
+            Err(err) => match err.kind {
+                fs_extra::error::ErrorKind::NotFound => {
+                    warn!("Source not found: {err}");
+                    continue;
+                }
+                _ => {
+                    error!(
+                        "Error while trying to back up {} at {}: {}",
+                        name,
+                        src.display(),
+                        err
+                    );
+                    process::exit(1);
+                }
+            },
         }
-        println!("{}: copied", name);
     }
 }
 
@@ -76,12 +98,10 @@ fn check_create_config_dir() -> io::Result<PathBuf> {
         }
     }
 
-    // let dir = bkp_dir.into_os_string().into_string().unwrap();
-    // Ok(dir)
     Ok(bkp_dir)
 }
 
-fn mk_bkp(source: PathBuf, target_dir: &PathBuf) -> Result<(), fs_extra::error::Error> {
+fn mk_bkp(source: &PathBuf, target_dir: &PathBuf) -> Result<(), fs_extra::error::Error> {
     // TODO always skip existing files?
     // -> maybe use chrono for different folder/file names instead?
     let options = dir::CopyOptions {
