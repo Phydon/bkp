@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // TODO use different filetype instead of bkp.txt?
+// TODO how to handle hidden files and folders -> include in backup?
 extern crate fs_extra;
 use chrono::Local;
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
