@@ -21,7 +21,13 @@
     * every empty line will be ignored
 * every information, warnings or errors can be found in the *bkp.log* file in the *bkp folder*
 
-### Keep in mind
+## Installation
+
+### Windows
+
+via Cargo or get the ![binary](https://github.com/Phydon/bkp/releases)
+
+## Keep in mind
 
 **always back up your files and folders before using this program**
 
