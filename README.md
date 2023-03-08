@@ -1,6 +1,6 @@
 # bkp
 
-**run automated backups**
+**run backups**
 
 * creates a *bkp folder* in the config directory (if not already exists)
 * creates a *bkp.txt* file in the *bkp folder* (if not already exists)
@@ -31,6 +31,6 @@ via Cargo or get the ![binary](https://github.com/Phydon/bkp/releases)
 
 **always back up your files and folders before using this program**
 
-**always test if your backup has worked correctly**
+*always test if your backup has worked correctly*
 
-**always back up your files and folders**
+***always back up your files and folders***
