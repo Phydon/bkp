@@ -9,9 +9,11 @@
     
     * Usage for the config file bkp.txt:
         > <folder_name> = <path_to_source>, <path_to_destination>, <overwrite>,
+        
         > If <path_to_destination> is "default", the backup will be stored in the config folder,
     * Example:,
         > my_default_backup = C:/Users/Username/path_to_source/important_folder/, default, true,
+        
         > my_google_drive_backup = C:/Users/Username/path_to_source/important_folder/, G:/Google_Drive/My Storage/path_to_destination/, true
         
     * if <overwrite_bool> is set to false: 
