@@ -8,21 +8,21 @@
     * skips already existing files and folders if nothing has been modified since the last backup
     
     * Usage for the config file bkp.txt:
-        > <folder_name> = <path_to_source>, <path_to_destination>, \<overwrite>,
+        ```<folder_name> = <path_to_source>, <path_to_destination>, \<overwrite>,```
         
-        > If <path_to_destination> is "default", the backup will be stored in the config folder,
+        ```If <path_to_destination> is "default", the backup will be stored in the config folder,```
     * Example:,
-        > my_default_backup = C:/Users/Username/path_to_source/important_folder/, default, true,
+        ```my_default_backup = C:/Users/Username/path_to_source/important_folder/, default, true,```
         
-        > my_google_drive_backup = C:/Users/Username/path_to_source/important_folder/, G:/Google_Drive/My Storage/path_to_destination/, true
+        ```my_google_drive_backup = C:/Users/Username/path_to_source/important_folder/, G:/Google_Drive/My Storage/path_to_destination/, true```
         
-    * if <overwrite_bool> is set to false: 
-        * it creates a new folder with the specified <folder_name> and the current datetime as the name of the created folder
-    * if <overwrite_bool> is set to true: 
+    * if ```<overwrite>``` is set to *false*: 
+        * it creates a new folder with the specified ```<folder_name>``` and the current datetime as the name of the created folder
+    * if ```<overwrite>``` is set to *true*: 
         * it replaces the old files with the new ones
-    * if "=" is missing:
+    * if ```"="``` is missing:
         * returns an error
-    * everything placed after "#" or "//" will be treated as a comment and will be ignored
+    * everything placed after ```"#"``` or ```"//"``` will be treated as a comment and will be ignored
     * every empty line will be ignored
 * every information, warnings or errors can be found in the *bkp.log* file in the *bkp folder*
 
