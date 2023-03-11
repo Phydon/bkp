@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // TODO use different filetype instead of bkp.txt?
-// TODO how to handle hidden files and folders -> include in backup?
+// TODO how to handle hidden files -> include in backup or skip?
 extern crate fs_extra;
 use chrono::Local;
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
@@ -13,7 +13,7 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     io::{self, BufRead, BufReader},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process,
 };
 
@@ -43,21 +43,27 @@ fn main() {
     // read sources to back up from bkp.txt in bkp folder
     // if no bkp.txt exists in bkp folder -> create a default one
     let sources = read_sources_from_file(&config_dir).unwrap_or_else(|err| {
-        warn!("Unable to find or read sources: {err}");
+        error!("Unable to find or read sources: {err}");
         process::exit(1);
     });
 
     // create backups for the sources from bkp.txt
     // if overwrite is set to false
     // a new folder gets created with the current datetime in the name
-    for (name, (src, overwrite)) in sources {
-        match mk_bkp(&name, &src, &config_dir, overwrite) {
+    for (name, (src, dest, overwrite)) in sources {
+        match mk_bkp(&name, &src, &dest, overwrite) {
             Ok(_) => {
                 info!("{}: successfully secured, {}", name, datetime);
             }
             Err(err) => match err.kind {
                 fs_extra::error::ErrorKind::NotFound => {
-                    warn!("{name} not found: {err}");
+                    warn!(
+                        "Unable to find {}, {} or {}: {}",
+                        name,
+                        src.display(),
+                        dest.display(),
+                        err
+                    );
                     continue;
                 }
                 fs_extra::error::ErrorKind::PermissionDenied => {
@@ -151,56 +157,79 @@ fn mk_bkp(
     Ok(())
 }
 
-fn read_sources_from_file(config_dir: &PathBuf) -> io::Result<BTreeMap<String, (PathBuf, bool)>> {
+fn read_sources_from_file(
+    config_dir: &PathBuf,
+) -> io::Result<BTreeMap<String, (PathBuf, PathBuf, bool)>> {
     let mut bkp_path = PathBuf::new();
     bkp_path.push(&config_dir);
     bkp_path.push("bkp.txt");
 
     if !bkp_path.as_path().exists() {
         let default_content = format!(
-            "# {}\n# {}\n# {}\n# {}",
+            "# {}\n# {}\n# {}\n\n# {}\n# {}\n# {}",
             "Usage:",
-            "<folder_name> = <path_to_source> & <overwrite>",
+            "<folder_name> = <path_to_source>, <path_to_destination>, <overwrite>",
+            "If <path_to_destination> is \"default\", the backup will be stored in the config folder",
             "Example:",
-            "my_backup = C:\\\\Users\\\\Username\\\\Documents\\\\important_folder\\\\ & true"
+            "my_default_backup = C:\\\\Users\\\\Username\\\\path_to_source\\\\important_folder\\\\, default, true",
+            "my_google_drive_backup = C:\\\\Users\\\\Username\\\\path_to_source\\\\important_folder\\\\, G:\\\\Google_Drive\\\\My Storage\\\\path_to_destination\\\\, true"
         );
         fs::write(&bkp_path, default_content)?;
     }
 
     let file = File::open(&bkp_path)?;
     let reader = BufReader::new(file);
-    let mut sources: BTreeMap<String, (PathBuf, bool)> = BTreeMap::new();
+    let mut sources: BTreeMap<String, (PathBuf, PathBuf, bool)> = BTreeMap::new();
 
     let mut counter = 0;
     for line in reader.lines() {
         let line = line?;
+
+        // ignore comments and empty lines
         if line.as_str().starts_with("#") || line.as_str().starts_with("//") || line.is_empty() {
             continue;
         } else {
-            if let Some((name, source_path)) = line.split_once("=") {
-                if let Some((src, overwrite)) = source_path.split_once("&") {
-                    match overwrite.to_lowercase().trim() {
-                        "true" => {
-                            sources.insert(
-                                name.trim().to_string(),
-                                (Path::new(src.trim()).to_path_buf(), true),
-                            );
-                            counter += 1;
-                        }
-                        "false" => {
-                            sources.insert(
-                                name.trim().to_string(),
-                                (Path::new(src.trim()).to_path_buf(), false),
-                            );
-                            counter += 1;
-                        }
-                        // TODO panics -> handle error differently?
-                        _ => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
-                    }
-                } else {
+            if let Some((name, content)) = line.split_once("=") {
+                let srcs: Vec<&str> = content.split(",").collect();
+
+                if srcs.len() != 3 {
+                    error!("Found to many parameters in the config file");
                     return Err(io::Error::from(io::ErrorKind::InvalidData));
                 }
+
+                let src = srcs[0];
+                let tmp_dest = srcs[1];
+                let overwrite = srcs[2];
+
+                let mut dest = String::new();
+                match tmp_dest.to_lowercase().trim() {
+                    "default" => {
+                        dest.push_str(config_dir.as_path().to_string_lossy().to_string().as_str());
+                    }
+                    _ => {
+                        dest.push_str(tmp_dest.trim());
+                    }
+                }
+
+                match overwrite.to_lowercase().trim() {
+                    "true" => {
+                        sources.insert(
+                            name.trim().to_string(),
+                            (PathBuf::from(src.trim()), PathBuf::from(dest), true),
+                        );
+                        counter += 1;
+                    }
+                    "false" => {
+                        sources.insert(
+                            name.trim().to_string(),
+                            (PathBuf::from(src.trim()), PathBuf::from(dest), false),
+                        );
+                        counter += 1;
+                    }
+                    _ => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
+                }
             } else {
+                warn!("No \"=\" found");
                 return Err(io::Error::from(io::ErrorKind::InvalidData));
             }
         }
