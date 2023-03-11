@@ -7,13 +7,13 @@
     * place all files and directories that should be included in the backup in this file
     * skips already existing files and folders if nothing has been modified since the last backup
     
-* Usage for the config file bkp.txt:
+* **USAGE** for the config file *bkp.txt*:
 
 ```<folder_name> = <path_to_source>, <path_to_destination>, <overwrite>```
 
-```If <path_to_destination> is "default", the backup will be stored in the config folder```
+* if ```<path_to_destination>``` is *default*, the backup will be stored in the *bkp folder* 
 
-* Example:
+* **EXAMPLE**:
     
 ```my_default_backup = C:/Users/Username/Desktop/important_folder/, default, true```
 
