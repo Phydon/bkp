@@ -37,9 +37,9 @@ my_google_drive_backup = C:/Users/Username/Desktop/important_folder/, G:/Google_
 1. local backups 
 2. backups via Google Drive synchronization on your local machine: 
     * Google Drive is unable to detect changes in *encrypted files*
-    * that means, that encrypted files only get uploaded once and will **not** be synchronized if you modify the encrpted file
+    * that means, that encrypted files only get uploaded once and will **not** be synchronized if you modify the encrypted file
     * however, with Google Drive Desktop you can create a local drive and everything in there will be uploaded to your cloud storage
-    * set this drive as your destination path in the *bkp.txt* config file and you can get automated backups via Google Drive
+    * set this drive as your destination path in the *bkp.txt* config file and you can get automated backups with Google Drive
 
 ## Installation
 
