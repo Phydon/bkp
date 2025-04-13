@@ -80,11 +80,12 @@ fn main() {
         }
     }
 
+    // TODO remove?
     // clean up all empty directories in the bkp folder
-    if let Err(err) = clean_empty(&config_dir) {
-        error!("Error while cleaning up bkp folder: {err}");
-        process::exit(1);
-    }
+    // if let Err(err) = clean_empty(&config_dir) {
+    //     error!("Error while cleaning up bkp folder: {err}");
+    //     process::exit(1);
+    // }
 }
 
 fn check_create_config_dir() -> io::Result<PathBuf> {
@@ -254,6 +255,7 @@ fn mk_bkp(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn clean_empty(bkp_path: &PathBuf) -> io::Result<()> {
     for entry in fs::read_dir(bkp_path)? {
         let entry = entry?;
