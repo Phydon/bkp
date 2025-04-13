@@ -25,20 +25,9 @@ fn main() {
     });
 
     // initialize the logger
-    let _logger = Logger::try_with_str("info") // log warn and error
-        .unwrap()
-        .format_for_files(detailed_format) // use timestamp for every log
-        .log_to_file(
-            FileSpec::default()
-                .directory(&config_dir) // change directory for logs
-                .suppress_timestamp(), // no timestamps in the filename
-        )
-        .append() // use only one logfile
-        .duplicate_to_stderr(Duplicate::Info) // print infos, warnings and errors also to the console
-        .start()
-        .unwrap();
+    init_logger(&config_dir);
 
-    let datetime = Local::now().format("%a %e.%b.%Y, %T").to_string();
+    let datetime = get_datetime();
 
     // read sources to back up from bkp.txt in bkp folder
     // if no bkp.txt exists in bkp folder -> create a default one
@@ -116,45 +105,23 @@ fn check_create_config_dir() -> io::Result<PathBuf> {
     Ok(bkp_dir)
 }
 
-fn mk_bkp(
-    source_name: &str,
-    source: &PathBuf,
-    target_dir: &PathBuf,
-    overwrite: bool,
-) -> Result<(), fs_extra::error::Error> {
-    // TODO always skip existing files?
-    let options = dir::CopyOptions {
-        overwrite: overwrite,
-        skip_exist: true,
-        copy_inside: false,
-        content_only: false,
-        ..Default::default()
-    };
+fn init_logger(config_dir: &PathBuf) {
+    let _logger = Logger::try_with_str("info") // log info, warn and error
+        .unwrap()
+        .format_for_files(detailed_format) // use timestamp for every log
+        .log_to_file(
+            FileSpec::default()
+                .directory(&config_dir)
+                .suppress_timestamp(),
+        ) // change directory for logs, no timestamps in the filename
+        .append() // use only one logfile
+        .duplicate_to_stderr(Duplicate::Info) // print infos, warnings and errors also to the console
+        .start()
+        .unwrap();
+}
 
-    let mut paths = Vec::new();
-    paths.push(source.as_path());
-
-    if overwrite {
-        copy_items(&paths, target_dir, &options)?;
-    } else {
-        let datetime = Local::now().format("%e%b%Y_%H%M%S%f").to_string();
-        let new_name = source_name.to_owned() + "_" + &datetime;
-        let mut new_target_dir = PathBuf::new();
-        new_target_dir.push(target_dir);
-        new_target_dir.push(new_name);
-
-        // TODO always creates the new_tagret_dir
-        // -> if fs_extra::Error -> new created directory will be emtpy
-        // => clean up empty direcories in bkp folder after every program run
-        // is there a better way to handle that?
-        if !new_target_dir.as_path().exists() {
-            fs::create_dir(&new_target_dir)?;
-        }
-
-        copy_items(&paths, new_target_dir, &options)?;
-    }
-
-    Ok(())
+fn get_datetime() -> String {
+    Local::now().format("%a %e.%b.%Y, %T").to_string()
 }
 
 fn read_sources_from_file(
@@ -244,6 +211,47 @@ fn read_sources_from_file(
     }
 
     Ok(sources)
+}
+
+fn mk_bkp(
+    source_name: &str,
+    source: &PathBuf,
+    target_dir: &PathBuf,
+    overwrite: bool,
+) -> Result<(), fs_extra::error::Error> {
+    // TODO always skip existing files?
+    let options = dir::CopyOptions {
+        overwrite: overwrite,
+        skip_exist: true,
+        copy_inside: false,
+        content_only: false,
+        ..Default::default()
+    };
+
+    let mut paths = Vec::new();
+    paths.push(source.as_path());
+
+    if overwrite {
+        copy_items(&paths, target_dir, &options)?;
+    } else {
+        let datetime = Local::now().format("%e%b%Y_%H%M%S%f").to_string();
+        let new_name = source_name.to_owned() + "_" + &datetime;
+        let mut new_target_dir = PathBuf::new();
+        new_target_dir.push(target_dir);
+        new_target_dir.push(new_name);
+
+        // TODO always creates the new_tagret_dir
+        // -> if fs_extra::Error -> new created directory will be emtpy
+        // => clean up empty direcories in bkp folder after every program run
+        // is there a better way to handle that?
+        if !new_target_dir.as_path().exists() {
+            fs::create_dir(&new_target_dir)?;
+        }
+
+        copy_items(&paths, new_target_dir, &options)?;
+    }
+
+    Ok(())
 }
 
 fn clean_empty(bkp_path: &PathBuf) -> io::Result<()> {
